@@ -9,6 +9,7 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from email.mime.text import MIMEText
+from lxml.html.diff import htmldiff
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
@@ -117,7 +118,7 @@ def get_gmail_service():
     return build('gmail', 'v1', credentials=credentials)
 
 
-def detect_change(file_name: str, new_content: str) -> bool:
+def detect_change(file_name: str, new_content: str) -> Optional[str]:
     """Detect if the content in a file differs from a given string.
 
     Args:
@@ -125,21 +126,24 @@ def detect_change(file_name: str, new_content: str) -> bool:
         new_content: The string that should be compared with the file contained string.
 
     Returns:
-        True if a difference was detected.
+        The difference between the contents if there was a change, else None.
     """
     difference_was_detected = False
+    change = None
     if os.path.isfile(file_name):
         with open(file_name, 'r') as file:
             old_content = file.read()
             if old_content != new_content:
                 difference_was_detected = True
+                change = htmldiff(old_content, new_content)
     else:
         difference_was_detected = True
+        change = new_content
 
     if difference_was_detected:
         with open(file_name, 'w') as file:
             file.write(new_content)
-    return difference_was_detected
+    return change
 
 
 if __name__ == '__main__':
@@ -148,12 +152,12 @@ if __name__ == '__main__':
                                             element_tag="div",
                                             element_tag_specifier={"class": "main-column"})
 
-    if detect_change(file_name='content.html', new_content=web_page_content):
+    detected_change = detect_change(file_name='content.html', new_content=web_page_content)
+    if detected_change is not None:
         print("change detected - send email")
         gmail_service = get_gmail_service()
         email = create_gmail_email(sender='sender.email@gmail.com', to='recipient.email@gmail.com',
-                                   subject='Nubert speaker stands were updated', message_text=web_page_content)
+                                   subject='Nubert speaker stands were updated', message_text=detected_change)
         send_gmail_email(gmail_service, 'me', email)
     else:
         print("no change")
-
