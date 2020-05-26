@@ -123,3 +123,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+
+# Virtual environments
+venv_*
+# Gmail API credentials
+credentials.json
+token.pickle
+# Temp files
+content.html
