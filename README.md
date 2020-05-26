@@ -17,6 +17,8 @@ Fetch a certain part of a website and check if it changed - on change send an em
   crontab -e
   ```
 
+  Add the following line to the file:
+
   ```text
   0 */5 * * * cd Path/from/home/directory/WebsiteWatcherNotifierGmail && ./run.sh >> log.log
   ```
@@ -31,4 +33,3 @@ Fetch a certain part of a website and check if it changed - on change send an em
   pip3 install -r requirements.txt
   python3 -m main
   ```
- 
