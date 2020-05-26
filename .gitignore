@@ -132,3 +132,6 @@ credentials.json
 token.pickle
 # Temp files
 content.html
+
+# IDEs
+.idea
