@@ -4,7 +4,7 @@ Fetch a certain part of a website and check if it changed - on change send an em
 
 ## Prerequisites
 
-- Get [GMail API credentials (`credentials.json)](https://developers.google.com/gmail/api/quickstart/python) and place them into the repository directory
+- Get [GMail API credentials (`credentials.json`)](https://developers.google.com/gmail/api/quickstart/python) and place them into the repository directory
 - Specify in the file [`main.py`](main.py) what
   - url and which element of the site should be fetched
   - who the recipient/content/subject of the email on a detected change should be
@@ -22,8 +22,13 @@ Fetch a certain part of a website and check if it changed - on change send an em
   ```
 
   (This will run the job [all 5 hours at minute 0](https://crontab.guru/#0_*/5_*_*_*))
-- Make a test run by running:
+- Run it via command line with:
 
   ```sh
+  # Easy and no global package pollution
   ./run.sh
+  # Normal way
+  pip3 install -r requirements.txt
+  python3 -m main
   ```
+ 
