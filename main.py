@@ -16,9 +16,15 @@ from lxml.html.diff import htmldiff
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
+Attribute = str
+AttributeValueWhitelist = List[str]
+AttributeInfo = Tuple[Attribute, AttributeValueWhitelist]
+Tag = str
+TagInfo = Tuple[Tag, List[AttributeInfo]]
+
 
 def get_web_page_content(url: str, element_tag: str, element_tag_specifier: dict,
-                         tags_to_drop: Optional[List[Tuple[str, List[Tuple[str, List[str]]]]]] = None,
+                         tags_to_drop: Optional[List[TagInfo]] = None,
                          attributes_to_drop: Optional[List[str]] = None,
                          fix_links_with_base_url: Optional[str] = None) -> str:
     """Scrape web page for a certain part.
@@ -36,9 +42,9 @@ def get_web_page_content(url: str, element_tag: str, element_tag_specifier: dict
         A string that contains a certain part of the website while missing unnecessary style or other information.
     """
     if attributes_to_drop is None:
-        attributes_to_drop: List[str] = ['class', 'id', 'name', 'style', 'align']
+        attributes_to_drop = ['class', 'id', 'name', 'style', 'align']
     if tags_to_drop is None:
-        tags_to_drop: List[Tuple[str, List[Tuple[str, List[str]]]]] = [('script', []), ('form', [])]
+        tags_to_drop = [('script', []), ('form', [])]
 
     page = requests.get(url)
     soup = BeautifulSoup(page.content, 'html.parser')
@@ -48,7 +54,7 @@ def get_web_page_content(url: str, element_tag: str, element_tag_specifier: dict
         raise Exception("{}s (with {}) are either not found or too many ({})!".format(element_tag,
                                                                                       element_tag_specifier,
                                                                                       len(found_elements)))
-    element: ResultSet = found_elements[0]
+    element = found_elements[0]
 
     # with open('original.html', 'w') as token:
     #     token.write(str(element))
@@ -60,7 +66,7 @@ def get_web_page_content(url: str, element_tag: str, element_tag_specifier: dict
     return str(element)
 
 
-def helper_remove_tags(element: ResultSet, tags_to_drop: Optional[List[Tuple[str, List[Tuple[str, List[str]]]]]]):
+def helper_remove_tags(element: ResultSet, tags_to_drop: Optional[List[TagInfo]] = None):
     for tag_to_drop in tags_to_drop:
         for s in element.select(tag_to_drop[0]):
             decomposed = False
