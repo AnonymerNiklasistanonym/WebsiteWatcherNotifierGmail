@@ -63,7 +63,6 @@ def get_web_page_content(url: str, element_tag: str, element_tag_specifier: dict
 def helper_remove_tags(element: ResultSet, tags_to_drop: Optional[List[Tuple[str, List[Tuple[str, List[str]]]]]]):
     for tag_to_drop in tags_to_drop:
         for s in element.select(tag_to_drop[0]):
-            print("s", s)
             decomposed = False
             if len(tag_to_drop[1]) > 0:
                 for attribute in tag_to_drop[1]:
@@ -76,7 +75,6 @@ def helper_remove_tags(element: ResultSet, tags_to_drop: Optional[List[Tuple[str
             else:
                 decomposed = True
                 s.decompose()
-            print("len(s.select(tag_to_drop[0])) != 0", s)
             if not decomposed and len(s.select(tag_to_drop[0])) != 0:
                 helper_remove_tags(s, tags_to_drop)
 
