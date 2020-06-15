@@ -190,9 +190,11 @@ if __name__ == '__main__':
                                             element_tag_specifier={"class": "main-column"},
                                             fix_links_with_base_url="https://www.nubert.de",
                                             tags_to_drop=[
-                                                ('script', []), ('form', [
+                                                ('script', []),
+                                                ('form', [
                                                     ("action", ["/basket_add/"])
-                                                ]), ('select', [])
+                                                ]),
+                                                ('select', [])
                                             ])
 
     detected_change = detect_change(file_name='content.html', new_content=web_page_content)
