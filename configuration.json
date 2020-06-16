@@ -1,0 +1,39 @@
+{
+  "jobs": [
+    {
+      "element_tag": "div",
+      "element_tag_specifier": {
+        "class": "main-column"
+      },
+      "fix_links_with_base_url": "https://www.nubert.de",
+      "recipients": [
+        "email.recipient@gmail.com"
+      ],
+      "tags_to_drop": [
+        {
+          "attribute_whitelist": [],
+          "tag_to_drop": "script"
+        },
+        {
+          "attribute_whitelist": [
+            {
+              "attribute": "action",
+              "attribute_value_whitelist": [
+                "/basket_add/"
+              ]
+            }
+          ],
+          "tag_to_drop": "form"
+        },
+        {
+          "attribute_whitelist": [],
+          "tag_to_drop": "select"
+        }
+      ],
+      "title": "Nubert speaker stands were updated",
+      "url": "https://www.nubert.de/stative-halter/38/"
+    }
+  ],
+  "sender": "email.sender@gmail.com",
+  "version": 1
+}

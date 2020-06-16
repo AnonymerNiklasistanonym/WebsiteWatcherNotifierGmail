@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 
 import requests
 import base64
@@ -12,6 +12,9 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from email.mime.text import MIMEText
 from lxml.html.diff import htmldiff
+import json
+from dataclasses import dataclass
+
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
@@ -21,6 +24,18 @@ AttributeValueWhitelist = List[str]
 AttributeInfo = Tuple[Attribute, AttributeValueWhitelist]
 Tag = str
 TagInfo = Tuple[Tag, List[AttributeInfo]]
+
+
+@dataclass
+class Configuration:
+    element_tag: str
+    element_tag_specifier: Dict[str, str]
+    fix_links_with_base_url: Optional[str]
+    tags_to_drop: List[TagInfo]
+    url: str
+    recipients: List[str]
+    sender: str
+    title: str
 
 
 def get_web_page_content(url: str, element_tag: str, element_tag_specifier: dict,
@@ -189,26 +204,51 @@ def detect_change(file_name: str, new_content: str) -> Optional[str]:
     return change
 
 
+def load_configuration() -> List[Configuration]:
+    configurations = []
+    with open('configuration.json', 'r') as file:
+        data = json.loads(file.read().replace('\n', ''))
+        for job in data["jobs"]:
+            tags_to_drop = []
+            for tag_to_drop in job["tags_to_drop"]:
+                attribute_whitelist = []
+                for attribute_whitelist_element in tag_to_drop["attribute_whitelist"]:
+                    attribute_whitelist.append((
+                        attribute_whitelist_element["attribute"],
+                        attribute_whitelist_element["attribute_value_whitelist"]
+                    ))
+                tags_to_drop.append((
+                    tag_to_drop["tag_to_drop"],
+                    attribute_whitelist
+                ))
+            configurations.append(Configuration(
+                element_tag=job["element_tag"],
+                element_tag_specifier=job["element_tag_specifier"],
+                fix_links_with_base_url=job["fix_links_with_base_url"],
+                tags_to_drop=tags_to_drop,
+                url=job["url"],
+                recipients=job["recipients"],
+                sender=data["sender"],
+                title=job["title"]
+            ))
+    return configurations
+
+
 if __name__ == '__main__':
     # Download credentials.json from https://developers.google.com/gmail/api/quickstart/python
-    web_page_content = get_web_page_content(url="https://www.nubert.de/stative-halter/38/",
-                                            element_tag="div",
-                                            element_tag_specifier={"class": "main-column"},
-                                            fix_links_with_base_url="https://www.nubert.de",
-                                            tags_to_drop=[
-                                                ('script', []),
-                                                ('form', [
-                                                    ("action", ["/basket_add/"])
-                                                ]),
-                                                ('select', [])
-                                            ])
+    for configuration in load_configuration():
+        web_page_content = get_web_page_content(url=configuration.url,
+                                                element_tag=configuration.element_tag,
+                                                element_tag_specifier=configuration.element_tag_specifier,
+                                                fix_links_with_base_url=configuration.fix_links_with_base_url,
+                                                tags_to_drop=configuration.tags_to_drop)
 
-    detected_change = detect_change(file_name='content.html', new_content=web_page_content)
-    if detected_change is not None:
-        print("change detected - send email")
-        gmail_service = get_gmail_service()
-        email = create_gmail_email(sender='sender.email@gmail.com', to='recipient.email@gmail.com',
-                                   subject='Nubert speaker stands were updated', message_text=detected_change)
-        send_gmail_email(gmail_service, 'me', email)
-    else:
-        print("no change")
+        detected_change = detect_change(file_name='content.html', new_content=web_page_content)
+        if detected_change is not None:
+            gmail_service = get_gmail_service()
+            for recipient in configuration.recipients:
+                email = create_gmail_email(sender=configuration.sender, to=recipient,
+                                           subject=configuration.title, message_text=detected_change)
+                send_gmail_email(gmail_service, 'me', email)
+        else:
+            print("no change")
