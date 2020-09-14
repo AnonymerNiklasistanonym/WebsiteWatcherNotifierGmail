@@ -16,7 +16,7 @@ cd "$SCRIPT_DIR"
 
 # Create/Update and enter virtual environment
 if ! [ -d "$PYTHON_VENV_DIR" ]; then
-    python3 -m venv "$PYTHON_VENV_DIR"
+    python3.8 -m venv "$PYTHON_VENV_DIR"
     source "$PYTHON_VENV_DIR/bin/activate"
     pip install --upgrade pip
     pip install -r "$PYTHON_VENV_REQUIREMENTS_FILE"

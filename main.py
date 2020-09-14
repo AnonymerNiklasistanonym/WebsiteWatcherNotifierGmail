@@ -4,7 +4,7 @@ from typing import Optional, List, Tuple, Dict
 
 import requests
 import base64
-from bs4 import BeautifulSoup, ResultSet
+from bs4 import BeautifulSoup, ResultSet, Comment
 import pickle
 import os.path
 from googleapiclient.discovery import build
@@ -36,6 +36,7 @@ class Configuration:
     recipients: List[str]
     sender: str
     title: str
+    name: str
 
 
 def get_web_page_content(url: str, element_tag: str, element_tag_specifier: dict,
@@ -76,9 +77,12 @@ def get_web_page_content(url: str, element_tag: str, element_tag_specifier: dict
 
     # Remove specified script tags
     helper_remove_tags(element, tags_to_drop)
+    # Remove comments
+    for html_element in element(text=lambda text: isinstance(text, Comment)):
+        html_element.extract()
     # Remove specified attributes from tags
     helper_remove_attributes(element, attributes_to_drop, fix_links_with_base_url)
-    return str(element)
+    return str(element.prettify())
 
 
 def helper_remove_tags(element: ResultSet, tags_to_drop: Optional[List[TagInfo]] = None):
@@ -208,28 +212,29 @@ def load_configuration() -> List[Configuration]:
     configurations = []
     with open('configuration.json', 'r') as file:
         data = json.loads(file.read().replace('\n', ''))
-        for job in data["jobs"]:
+        for job in data['jobs']:
             tags_to_drop = []
-            for tag_to_drop in job["tags_to_drop"]:
+            for tag_to_drop in job['tags_to_drop']:
                 attribute_whitelist = []
                 for attribute_whitelist_element in tag_to_drop["attribute_whitelist"]:
                     attribute_whitelist.append((
-                        attribute_whitelist_element["attribute"],
-                        attribute_whitelist_element["attribute_value_whitelist"]
+                        attribute_whitelist_element['attribute'],
+                        attribute_whitelist_element['attribute_value_whitelist']
                     ))
                 tags_to_drop.append((
-                    tag_to_drop["tag_to_drop"],
+                    tag_to_drop['tag_to_drop'],
                     attribute_whitelist
                 ))
             configurations.append(Configuration(
-                element_tag=job["element_tag"],
-                element_tag_specifier=job["element_tag_specifier"],
-                fix_links_with_base_url=job["fix_links_with_base_url"],
+                element_tag=job['element_tag'],
+                element_tag_specifier=job['element_tag_specifier'],
+                fix_links_with_base_url=job['fix_links_with_base_url'],
                 tags_to_drop=tags_to_drop,
-                url=job["url"],
-                recipients=job["recipients"],
-                sender=data["sender"],
-                title=job["title"]
+                url=job['url'],
+                recipients=job['recipients'],
+                sender=data['sender'],
+                title=job['title'],
+                name=job['name'],
             ))
     return configurations
 
@@ -243,7 +248,7 @@ if __name__ == '__main__':
                                                 fix_links_with_base_url=configuration.fix_links_with_base_url,
                                                 tags_to_drop=configuration.tags_to_drop)
 
-        detected_change = detect_change(file_name='content.html', new_content=web_page_content)
+        detected_change = detect_change(file_name=f"content_{configuration.name}.html", new_content=web_page_content)
         if detected_change is not None:
             gmail_service = get_gmail_service()
             for recipient in configuration.recipients:

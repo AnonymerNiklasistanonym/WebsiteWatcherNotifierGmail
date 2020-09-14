@@ -6,6 +6,7 @@
         "class": "main-column"
       },
       "fix_links_with_base_url": "https://www.nubert.de",
+      "name": "nubert_speaker",
       "recipients": [
         "email.recipient@gmail.com"
       ],
