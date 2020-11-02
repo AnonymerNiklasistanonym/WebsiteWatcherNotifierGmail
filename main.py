@@ -25,14 +25,20 @@ AttributeValueWhitelist = List[str]
 AttributeInfo = Tuple[Attribute, AttributeValueWhitelist]
 Tag = str
 TagInfo = Tuple[Tag, List[AttributeInfo]]
+TagNewName = str
+TagRenameInfo = Tuple[Tag, TagNewName]
 
 
 @dataclass
 class Configuration:
+    add_website_link: Optional[bool]
+    whole_website: Optional[bool]
+    """Check the whole website"""
     element_tag: str
     element_tag_specifier: Dict[str, str]
     fix_links_with_base_url: Optional[str]
-    tags_to_drop: List[TagInfo]
+    tags_to_drop: Optional[List[TagInfo]]
+    tags_to_rename: Optional[List[TagRenameInfo]]
     url: str
     recipients: List[str]
     sender: str
@@ -45,8 +51,11 @@ def get_web_page_content(
     element_tag: str,
     element_tag_specifier: dict,
     tags_to_drop: Optional[List[TagInfo]] = None,
+    tags_to_rename: Optional[List[TagInfo]] = None,
     attributes_to_drop: Optional[List[str]] = None,
     fix_links_with_base_url: Optional[str] = None,
+    whole_website: Optional[bool] = None,
+    add_website_link: Optional[bool] = None,
 ) -> str:
     """Scrape web page for a certain part.
 
@@ -56,8 +65,11 @@ def get_web_page_content(
         element_tag_specifier: Specifier for certain id ({id: '...'}) or class ({class: '...'}).
         tags_to_drop: Optional list of HTML tags that should be dropped from the web page output.
                       Optionally a whitelist for certain attributes with optional a whitelist of values can be added)
+        tags_to_rename: Optional list of HTML tags that should be renamed from the web page output.
+                        Optionally a whitelist for certain attributes with optional a whitelist of values can be added)
         attributes_to_drop: Optional list of HTML tag attributes that should be dropped from the web page output.
         fix_links_with_base_url: Optional base url correction for links.
+        whole_website: Scrap the whole website without considering a special element tag.
 
     Returns:
         A string that contains a certain part of the website while missing unnecessary style or other information.
@@ -77,18 +89,33 @@ def get_web_page_content(
                 element_tag, element_tag_specifier, len(found_elements)
             )
         )
-    element = found_elements[0]
+    element = soup if whole_website else found_elements[0]
 
-    # with open('original.html', 'w') as token:
-    #     token.write(str(element))
+    # with open("original.html", "w") as token:
+    #     token.write(str(element.prettify()))
 
-    # Remove specified script tags
+    # Remove specified tags
     helper_remove_tags(element, tags_to_drop)
+    # Rename specified tags
+    helper_rename_tags(element, tags_to_rename)
     # Remove comments
     for html_element in element(text=lambda text: isinstance(text, Comment)):
         html_element.extract()
     # Remove specified attributes from tags
     helper_remove_attributes(element, attributes_to_drop, fix_links_with_base_url)
+
+    if add_website_link:
+        br_tag_1 = soup.new_tag("br")
+        soup.insert(len(soup.contents), br_tag_1)
+        br_tag_2 = soup.new_tag("br")
+        soup.insert(len(soup.contents), br_tag_2)
+        new_tag = soup.new_tag("a", href=url)
+        new_tag.string = "Link to original website"
+        soup.insert(len(soup.contents), new_tag)
+
+    # with open("updated.html", "w") as token:
+    #     token.write(str(element.prettify()))
+
     return str(element.prettify())
 
 
@@ -123,12 +150,22 @@ def helper_remove_attributes(
             if tag.has_attr(attribute):
                 del tag[attribute]
         if fix_links_with_base_url is not None:
-            if tag.has_attr("href") and not tag["href"].startswith(
-                fix_links_with_base_url
+            if (
+                tag.has_attr("href")
+                and not tag["href"].startswith(fix_links_with_base_url)
+                and not tag["href"].startswith("https://")
             ):
                 tag["href"] = fix_links_with_base_url + tag["href"]
         if len(tag()) != 0:
             helper_remove_attributes(tag, attributes_to_drop, fix_links_with_base_url)
+
+
+def helper_rename_tags(
+    element: ResultSet, tags_to_rename: Optional[List[TagRenameInfo]] = None
+):
+    for tag_to_rename in tags_to_rename:
+        for tag in element.find_all(tag_to_rename[0]):
+            tag.name = tag_to_rename[1]
 
 
 def create_gmail_email(sender: str, to: str, subject: str, message_text: str):
@@ -227,22 +264,42 @@ def load_configuration() -> List[Configuration]:
         data = json.loads(file.read().replace("\n", ""))
         for job in data["jobs"]:
             tags_to_drop = []
-            for tag_to_drop in job["tags_to_drop"]:
-                attribute_whitelist = []
-                for attribute_whitelist_element in tag_to_drop["attribute_whitelist"]:
-                    attribute_whitelist.append(
-                        (
-                            attribute_whitelist_element["attribute"],
-                            attribute_whitelist_element["attribute_value_whitelist"],
+            if "tags_to_drop" in job:
+                for tag_to_drop in job["tags_to_drop"]:
+                    attribute_whitelist = []
+                    for attribute_whitelist_element in tag_to_drop[
+                        "attribute_whitelist"
+                    ]:
+                        attribute_whitelist.append(
+                            (
+                                attribute_whitelist_element["attribute"],
+                                attribute_whitelist_element[
+                                    "attribute_value_whitelist"
+                                ],
+                            )
                         )
+                    tags_to_drop.append(
+                        (tag_to_drop["tag_to_drop"], attribute_whitelist)
                     )
-                tags_to_drop.append((tag_to_drop["tag_to_drop"], attribute_whitelist))
+            tags_to_rename = []
+            if "tags_to_rename" in job:
+                for tag_to_rename in job["tags_to_rename"]:
+                    tags_to_rename.append(
+                        (tag_to_rename["tag_to_rename"], tag_to_rename["new_tag_name"])
+                    )
             configurations.append(
                 Configuration(
+                    add_website_link=job["add_website_link"]
+                    if "add_website_link" in job
+                    else False,
+                    whole_website=job["whole_website"]
+                    if "whole_website" in job
+                    else False,
                     element_tag=job["element_tag"],
                     element_tag_specifier=job["element_tag_specifier"],
                     fix_links_with_base_url=job["fix_links_with_base_url"],
                     tags_to_drop=tags_to_drop,
+                    tags_to_rename=tags_to_rename,
                     url=job["url"],
                     recipients=job["recipients"],
                     sender=data["sender"],
@@ -268,6 +325,9 @@ if __name__ == "__main__":
             element_tag_specifier=configuration.element_tag_specifier,
             fix_links_with_base_url=configuration.fix_links_with_base_url,
             tags_to_drop=configuration.tags_to_drop,
+            tags_to_rename=configuration.tags_to_rename,
+            whole_website=configuration.whole_website,
+            add_website_link=configuration.add_website_link,
         )
 
         detected_change = detect_change(
