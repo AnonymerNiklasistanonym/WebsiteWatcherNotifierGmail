@@ -14,7 +14,8 @@ from email.mime.text import MIMEText
 from lxml.html.diff import htmldiff
 import json
 from dataclasses import dataclass
-
+import time
+import datetime
 
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
@@ -252,6 +253,12 @@ def load_configuration() -> List[Configuration]:
     return configurations
 
 
+def current_timestamp() -> str:
+    ts = time.time()
+    st = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+    return st
+
+
 if __name__ == "__main__":
     # Download credentials.json from https://developers.google.com/gmail/api/quickstart/python
     for configuration in load_configuration():
@@ -267,7 +274,7 @@ if __name__ == "__main__":
             file_name=f"content_{configuration.name}.html", new_content=web_page_content
         )
         if detected_change is not None:
-            print(f"change detected: {configuration.name}")
+            print(f"[{current_timestamp()}] change detected: {configuration.name}")
             gmail_service = get_gmail_service()
             for recipient in configuration.recipients:
                 email = create_gmail_email(
@@ -286,4 +293,4 @@ if __name__ == "__main__":
                         f"> an error occurred during sending the email: {configuration.name} ({recipient})\n{str(e)}"
                     )
         else:
-            print(f"no change: {configuration.name}")
+            print(f"[{current_timestamp()}] no change: {configuration.name}")
