@@ -33,6 +33,41 @@
       ],
       "title": "Nubert speaker stands were updated",
       "url": "https://www.nubert.de/stative-halter/38/"
+    },
+    {
+      "whole_website": true,
+      "add_website_link": true,
+      "element_tag": "html",
+      "element_tag_specifier": {},
+      "fix_links_with_base_url": "https://info.mathematik.uni-stuttgart.de/Mathe-1-Inf-WiSe20/",
+      "recipients": [
+        "email.recipient@gmail.com"
+      ],
+      "name": "university_mathe_test",
+      "tags_to_drop": [
+        {
+          "attribute_whitelist": [],
+          "tag_to_drop": "video"
+        },
+        {
+          "attribute_whitelist": [],
+          "tag_to_drop": "head"
+        }
+      ],
+      "tags_to_rename": [
+        {
+          "attribute_whitelist": [],
+          "tag_to_rename": "html",
+          "new_tag_name": "section"
+        },
+        {
+          "attribute_whitelist": [],
+          "tag_to_rename": "body",
+          "new_tag_name": "section"
+        }
+      ],
+      "title": "Mathe 1 website content has changed",
+      "url": "https://info.mathematik.uni-stuttgart.de/Mathe-1-Inf-WiSe20/"
     }
   ],
   "sender": "email.sender@gmail.com",

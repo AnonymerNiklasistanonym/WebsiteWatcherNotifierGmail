@@ -135,3 +135,8 @@ content.html
 
 # IDEs
 .idea
+.vscode/settings.json
+original.html
+updated.html
+content_*
+configuration.json
