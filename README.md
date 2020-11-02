@@ -4,10 +4,10 @@ Fetch a certain part of a website and check if it changed - on change send an em
 
 ## Prerequisites
 
-- Get [GMail API credentials (`credentials.json`)](https://developers.google.com/gmail/api/quickstart/python) and place them into the repository directory
-- Specify in the file [`main.py`](main.py) what
-  - url and which element of the site should be fetched
-  - who the recipient/content/subject of the email on a detected change should be
+1. Get [GMail API credentials (`credentials.json`)](https://developers.google.com/gmail/api/quickstart/python) and place them into the repository directory
+2. Specify which websites should be scraped with which options
+   1. Either by providing a `configuration.json` file that contains this information (copy and update the example [`configuration.example.json`](configuration.example.json))
+   2. Or by specifying it in the file [`main.py`](main.py)
 
 ## Run
 
