@@ -56,12 +56,10 @@
       ],
       "tags_to_rename": [
         {
-          "attribute_whitelist": [],
           "tag_to_rename": "html",
           "new_tag_name": "section"
         },
         {
-          "attribute_whitelist": [],
           "tag_to_rename": "body",
           "new_tag_name": "section"
         }
