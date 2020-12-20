@@ -2,6 +2,7 @@
 
 from typing import Optional, List, Tuple, Dict
 
+import sys
 import requests
 import base64
 from bs4 import BeautifulSoup, ResultSet, Comment
@@ -56,6 +57,7 @@ def get_web_page_content(
     fix_links_with_base_url: Optional[str] = None,
     whole_website: Optional[bool] = None,
     add_website_link: Optional[bool] = None,
+    debug=False,
 ) -> str:
     """Scrape web page for a certain part.
 
@@ -70,6 +72,8 @@ def get_web_page_content(
         attributes_to_drop: Optional list of HTML tag attributes that should be dropped from the web page output.
         fix_links_with_base_url: Optional base url correction for links.
         whole_website: Scrap the whole website without considering a special element tag.
+        add_website_link: Add a link to the scraped website.
+        debug: Enable debug comments.
 
     Returns:
         A string that contains a certain part of the website while missing unnecessary style or other information.
@@ -80,6 +84,10 @@ def get_web_page_content(
         tags_to_drop = [("script", []), ("form", [])]
 
     page = requests.get(url)
+
+    # Validate that page is valid HTML (no xml errors) to prevent crashes/loops
+    # TODO
+
     soup = BeautifulSoup(page.content, "html.parser")
     # Extract content that should be checked
     found_elements = soup.findAll(element_tag, element_tag_specifier)
@@ -91,18 +99,28 @@ def get_web_page_content(
         )
     element = soup if whole_website else found_elements[0]
 
-    # with open("original.html", "w") as token:
-    #     token.write(str(element.prettify()))
+    if debug:
+        with open("page.html", "w") as file:
+            file.write(str(page.content))
+            print(f"Write scraped website data to '{file.name}'")
+
+        with open("page_found_elements.json", "w") as file:
+            file.write(str(found_elements))
+            print(f"Write found elements data to '{file.name}'")
+
+        with open("page_element.html", "w") as file:
+            file.write(str(element.prettify()))
+            print(f"Write scraped website data element to '{file.name}'")
 
     # Remove specified tags
-    helper_remove_tags(element, tags_to_drop)
+    helper_remove_tags(element, tags_to_drop, debug=debug)
     # Rename specified tags
-    helper_rename_tags(element, tags_to_rename)
+    helper_rename_tags(element, tags_to_rename, debug=debug)
     # Remove comments
     for html_element in element(text=lambda text: isinstance(text, Comment)):
         html_element.extract()
     # Remove specified attributes from tags
-    helper_remove_attributes(element, attributes_to_drop, fix_links_with_base_url)
+    helper_remove_attributes(element, attributes_to_drop, fix_links_with_base_url, debug=debug)
 
     if add_website_link:
         br_tag_1 = soup.new_tag("br")
@@ -113,16 +131,20 @@ def get_web_page_content(
         new_tag.string = "Link to original website"
         soup.insert(len(soup.contents), new_tag)
 
-    # with open("updated.html", "w") as token:
-    #     token.write(str(element.prettify()))
+    if debug:
+        with open("page_element_updated.html", "w") as file:
+            file.write(str(element.prettify()))
+            print(f"Write updated website data for email to '{file.name}'")
 
     return str(element.prettify())
 
 
 def helper_remove_tags(
-    element: ResultSet, tags_to_drop: Optional[List[TagInfo]] = None
+    element: ResultSet, tags_to_drop: Optional[List[TagInfo]] = None, debug=False
 ):
     for tag_to_drop in tags_to_drop:
+        if debug:
+            print(f"Drop tag '{tag_to_drop}'")
         for s in element.select(tag_to_drop[0]):
             decomposed = False
             if len(tag_to_drop[1]) > 0:
@@ -136,6 +158,8 @@ def helper_remove_tags(
             else:
                 decomposed = True
                 s.decompose()
+            if debug and decomposed:
+                print(f"Drop element '{s}' in element '{element}'")
             if not decomposed and len(s.select(tag_to_drop[0])) != 0:
                 helper_remove_tags(s, tags_to_drop)
 
@@ -144,24 +168,35 @@ def helper_remove_attributes(
     element: ResultSet,
     attributes_to_drop: Optional[List[str]],
     fix_links_with_base_url: Optional[str],
+    debug=False,
 ):
     for tag in element():
+        if debug:
+            print(f"Current tag of element: '{tag}'")
         for attribute in attributes_to_drop:
+            if debug:
+                print(f"Remove attribute '{attribute}'")
             if tag.has_attr(attribute):
+                if debug:
+                    print(f"Remove attribute '{attribute}' from '{tag}'")
                 del tag[attribute]
         if fix_links_with_base_url is not None:
+            if debug:
+                print(f"Fix link with base url '{fix_links_with_base_url}'")
             if (
                 tag.has_attr("href")
                 and not tag["href"].startswith(fix_links_with_base_url)
                 and not tag["href"].startswith("https://")
             ):
+                if debug:
+                    print(f"Fix link with base url '{fix_links_with_base_url}' from {tag['href']})")
                 tag["href"] = fix_links_with_base_url + tag["href"]
         if len(tag()) != 0:
-            helper_remove_attributes(tag, attributes_to_drop, fix_links_with_base_url)
+            helper_remove_attributes(tag, attributes_to_drop, fix_links_with_base_url, debug=debug)
 
 
 def helper_rename_tags(
-    element: ResultSet, tags_to_rename: Optional[List[TagRenameInfo]] = None
+    element: ResultSet, tags_to_rename: Optional[List[TagRenameInfo]] = None, debug=False
 ):
     for tag_to_rename in tags_to_rename:
         for tag in element.find_all(tag_to_rename[0]):
@@ -199,32 +234,32 @@ def send_gmail_email(service, user_id: str, message):
         Sent email information if successful.
     """
     try:
-        sent_message_info = (
+        sent_gmail_message_info = (
             service.users().messages().send(userId=user_id, body=message).execute()
         )
-        return sent_message_info
-    except Exception as e:
-        raise e
+        return sent_gmail_message_info
+    except Exception as gmail_exception:
+        raise gmail_exception
 
 
-def get_gmail_service():
+def get_gmail_service(token_pickle_file="token.pickle", credentials_file="credentials.json"):
     """Get the GMail API service."""
     credentials = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as token:
+    if os.path.exists(token_pickle_file):
+        with open(token_pickle_file, "rb") as token:
             credentials = pickle.load(token)
     # If there are no (valid) credentials available, let the user log in.
     if not credentials or not credentials.valid:
         if credentials and credentials.expired and credentials.refresh_token:
             credentials.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
             credentials = flow.run_local_server(port=0)
         # Save the credentials for the next run
-        with open("token.pickle", "wb") as token:
+        with open(token_pickle_file, "wb") as token:
             pickle.dump(credentials, token)
 
     return build("gmail", "v1", credentials=credentials)
@@ -258,9 +293,9 @@ def detect_change(file_name: str, new_content: str) -> Optional[str]:
     return change
 
 
-def load_configuration() -> List[Configuration]:
+def load_configuration(config_file_name: str, debug=False) -> List[Configuration]:
     configurations = []
-    with open("configuration.json", "r") as file:
+    with open(config_file_name, "r") as file:
         data = json.loads(file.read().replace("\n", ""))
         for job in data["jobs"]:
             tags_to_drop = []
@@ -317,18 +352,35 @@ def current_timestamp() -> str:
 
 
 if __name__ == "__main__":
-    # Download credentials.json from https://developers.google.com/gmail/api/quickstart/python
-    for configuration in load_configuration():
-        web_page_content = get_web_page_content(
-            url=configuration.url,
-            element_tag=configuration.element_tag,
-            element_tag_specifier=configuration.element_tag_specifier,
-            fix_links_with_base_url=configuration.fix_links_with_base_url,
-            tags_to_drop=configuration.tags_to_drop,
-            tags_to_rename=configuration.tags_to_rename,
-            whole_website=configuration.whole_website,
-            add_website_link=configuration.add_website_link,
-        )
+    # Global args
+    global_debug = False
+
+    # Check for command line arguments
+    for arg in sys.argv:
+        if arg == "--debug":
+            global_debug = True
+            print("Debugging was activated")
+
+        # Download credentials.json from https://developers.google.com/gmail/api/quickstart/python
+    for configuration in load_configuration(config_file_name="configuration.json", debug=global_debug):
+        try:
+            web_page_content = get_web_page_content(
+                url=configuration.url,
+                element_tag=configuration.element_tag,
+                element_tag_specifier=configuration.element_tag_specifier,
+                fix_links_with_base_url=configuration.fix_links_with_base_url,
+                tags_to_drop=configuration.tags_to_drop,
+                tags_to_rename=configuration.tags_to_rename,
+                whole_website=configuration.whole_website,
+                add_website_link=configuration.add_website_link,
+                debug=global_debug,
+            )
+        except Exception as e:
+            print(
+                f"> an error occurred during parsing the website: {configuration.name} ({configuration.url})\n{str(e)}"
+            )
+            # Skip this configuration but still try the others
+            continue
 
         detected_change = detect_change(
             file_name=f"content_{configuration.name}.html", new_content=web_page_content
